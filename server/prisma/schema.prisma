@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+
+  age          Int?
+  experience   String?
+  goal         String?
+  trainingDays Int      @default(3)
+  equipment    String?
+  increment    Float    @default(2.5)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workouts     Workout[]
+  performances PerformanceLog[]
+}
+
+model Exercise {
+  id          Int      @id @default(autoincrement())
+  name        String
+  muscleGroup String
+  equipment   String?
+
+  workoutExercises WorkoutExercise[]
+  performances     PerformanceLog[]
+}
+
+model Workout {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  date      DateTime @default(now())
+  status    String   @default("PLANNED")
+
+  user      User @relation(fields: [userId], references: [id])
+  exercises WorkoutExercise[]
+}
+
+model WorkoutExercise {
+  id         Int @id @default(autoincrement())
+  workoutId  Int
+  exerciseId Int
+
+  targetWeight Float
+  targetReps   Int
+  targetSets   Int
+
+  workout  Workout  @relation(fields: [workoutId], references: [id])
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+}
+
+model PerformanceLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  exerciseId Int
+  workoutId  Int?
+
+  weight     Float
+  repetitions Int
+  sets       Int
+  rir        Float?
+  rpe        Float?
+  duration   Int?
+  date       DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+}
