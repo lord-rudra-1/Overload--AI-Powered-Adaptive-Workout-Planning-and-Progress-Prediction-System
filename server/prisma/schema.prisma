@@ -8,31 +8,49 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  password     String
+  id            Int      @id @default(autoincrement())
+  name          String
+  email         String   @unique
+  password      String
 
-  age          Int?
-  experience   String?
-  goal         String?
-  trainingDays Int      @default(3)
-  equipment    String?
-  increment    Float    @default(2.5)
+  age           Int?
+  gender        String?
+  bodyWeight    Float?
+  experience    String?
+  trainingDays  Int      @default(3)
+  equipment     String?
+  increment     Float    @default(2.5)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  workouts     Workout[]
-  performances PerformanceLog[]
+  goals         Goal[]
+  workouts      Workout[]
+  performances  PerformanceLog[]
+}
+
+model Goal {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  exerciseId   Int
+  targetWeight Float
+  targetDate   DateTime?
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id])
+  exercise     Exercise  @relation(fields: [exerciseId], references: [id])
 }
 
 model Exercise {
-  id          Int      @id @default(autoincrement())
-  name        String
-  muscleGroup String
-  equipment   String?
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  muscleGroup  String
+  category     String
+  equipment    String?
+  movementType String?
 
+  goals            Goal[]
   workoutExercises WorkoutExercise[]
   performances     PerformanceLog[]
 }
@@ -40,39 +58,46 @@ model Exercise {
 model Workout {
   id        Int      @id @default(autoincrement())
   userId    Int
+  weekNum   Int?
+  dayNum    Int?
   date      DateTime @default(now())
   status    String   @default("PLANNED")
+  notes     String?
+  duration  Int?
 
-  user      User @relation(fields: [userId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
   exercises WorkoutExercise[]
 }
 
 model WorkoutExercise {
-  id         Int @id @default(autoincrement())
+  id         Int    @id @default(autoincrement())
   workoutId  Int
   exerciseId Int
+  order      Int    @default(0)
 
   targetWeight Float
   targetReps   Int
   targetSets   Int
+  targetRPE    Float?
 
-  workout  Workout  @relation(fields: [workoutId], references: [id])
+  workout  Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId], references: [id])
 }
 
 model PerformanceLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  exerciseId Int
-  workoutId  Int?
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  exerciseId  Int
+  workoutId   Int?
 
-  weight     Float
+  setNumber   Int      @default(1)
+  weight      Float
   repetitions Int
-  sets       Int
-  rir        Float?
-  rpe        Float?
-  duration   Int?
-  date       DateTime @default(now())
+  rpe         Float?
+  rir         Float?
+  duration    Int?
+  date        DateTime @default(now())
+  notes       String?
 
   user     User     @relation(fields: [userId], references: [id])
   exercise Exercise @relation(fields: [exerciseId], references: [id])
