@@ -305,4 +305,101 @@ router.put("/:id/skip", auth, async (req, res) => {
   }
 });
 
+// PUT /api/workouts/exercise/:id/swap — swap an exercise in a planned workout
+router.put("/exercise/:id/swap", auth, async (req, res) => {
+  try {
+    const workoutExerciseId = parseInt(req.params.id, 10);
+    const { newExerciseId } = req.body;
+
+    if (!newExerciseId) {
+      return res.status(400).json({ success: false, error: "newExerciseId is required." });
+    }
+
+    const currentWorkoutExercise = await prisma.workoutExercise.findUnique({
+      where: { id: workoutExerciseId },
+      include: {
+        workout: true,
+        exercise: true,
+      },
+    });
+
+    if (!currentWorkoutExercise || currentWorkoutExercise.workout.userId !== req.user.id) {
+      return res.status(404).json({ success: false, error: "Workout exercise not found." });
+    }
+
+    if (currentWorkoutExercise.workout.status === "COMPLETED") {
+      return res.status(400).json({ success: false, error: "Cannot modify completed workouts." });
+    }
+
+    const newExercise = await prisma.exercise.findUnique({
+      where: { id: parseInt(newExerciseId, 10) },
+    });
+
+    if (!newExercise) {
+      return res.status(404).json({ success: false, error: "Selected replacement exercise not found." });
+    }
+
+    const updated = await prisma.workoutExercise.update({
+      where: { id: workoutExerciseId },
+      data: {
+        exerciseId: newExercise.id,
+      },
+      include: {
+        exercise: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: { workoutExercise: updated, message: `Swapped to ${newExercise.name}.` },
+    });
+  } catch (error) {
+    console.error("Exercise swap error:", error);
+    return res.status(500).json({ success: false, error: "Failed to swap exercise." });
+  }
+});
+
+// DELETE /api/workouts/:id — delete a scheduled workout
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const workout = await prisma.workout.findFirst({
+      where: { id, userId: req.user.id },
+    });
+
+    if (!workout) {
+      return res.status(404).json({
+        success: false,
+        error: "Workout not found.",
+      });
+    }
+
+    // Delete any performance logs for this workout
+    await prisma.performanceLog.deleteMany({
+      where: { workoutId: id },
+    });
+
+    // Delete workout exercises
+    await prisma.workoutExercise.deleteMany({
+      where: { workoutId: id },
+    });
+
+    // Delete workout
+    await prisma.workout.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: { message: "Scheduled workout deleted successfully." },
+    });
+  } catch (error) {
+    console.error("Delete workout error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete workout.",
+    });
+  }
+});
+
 module.exports = router;

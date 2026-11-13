@@ -295,7 +295,41 @@ async function generateWeeklyPlan(userId) {
     }
   }
 
-  // Create the workouts in the database
+  // 1. Delete previous uncompleted/planned workouts for this user to prevent duplication
+  const existingPlanned = await prisma.workout.findMany({
+    where: {
+      userId: user.id,
+      status: { in: ["PLANNED", "IN_PROGRESS"] },
+    },
+    select: { id: true },
+  });
+
+  if (existingPlanned.length > 0) {
+    const plannedIds = existingPlanned.map((w) => w.id);
+
+    // Delete any uncompleted performance logs for these planned workouts
+    await prisma.performanceLog.deleteMany({
+      where: {
+        workoutId: { in: plannedIds },
+      },
+    });
+
+    // Delete existing workout exercises (cascade also handles this)
+    await prisma.workoutExercise.deleteMany({
+      where: {
+        workoutId: { in: plannedIds },
+      },
+    });
+
+    // Delete existing planned workouts
+    await prisma.workout.deleteMany({
+      where: {
+        id: { in: plannedIds },
+      },
+    });
+  }
+
+  // 2. Create the fresh workouts in the database
   const createdWorkouts = [];
 
   for (let i = 0; i < dayTemplates.length; i++) {

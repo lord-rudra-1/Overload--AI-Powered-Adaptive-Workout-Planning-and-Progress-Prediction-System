@@ -105,7 +105,7 @@ export default function ProfileSetup() {
 
       setSuccess("Profile and training goals configured successfully!");
       setTimeout(() => {
-        navigate("/");
+        navigate("/dashboard");
       }, 900);
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Failed to save profile.");
@@ -336,12 +336,21 @@ export default function ProfileSetup() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/dashboard")}
+            className="w-full sm:w-auto"
+          >
+            Back to Dashboard
+          </Button>
+
           <Button
             type="submit"
             size="lg"
             disabled={isSubmitting}
-            className="w-full md:w-auto px-8 gap-2 shadow-xl shadow-orange-500/20"
+            className="w-full sm:w-auto px-8 gap-2 shadow-xl shadow-orange-500/20"
           >
             {isSubmitting ? (
               <>
@@ -350,7 +359,7 @@ export default function ProfileSetup() {
               </>
             ) : (
               <>
-                Save & Initialize Overload Loop
+                Save & Update Athlete Loop
                 <ArrowRight className="h-4 w-4" />
               </>
             )}

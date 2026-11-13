@@ -167,4 +167,32 @@ router.get("/goals", auth, async (req, res) => {
   }
 });
 
+// DELETE /api/profile/goal/:id — delete a target goal
+router.delete("/goal/:id", auth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const deleted = await prisma.goal.deleteMany({
+      where: { id, userId: req.user.id },
+    });
+
+    if (deleted.count === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Goal not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: { message: "Goal deleted successfully." },
+    });
+  } catch (error) {
+    console.error("Delete goal error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete goal.",
+    });
+  }
+});
+
 module.exports = router;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "@/lib/api";
 import {
   BarChart3,
@@ -12,6 +13,7 @@ import {
   Clock,
   ArrowRight,
   Info,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -163,8 +165,16 @@ export default function Analytics() {
           <Target className="h-12 w-12 text-zinc-600 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-zinc-200">No Target Goals Defined</h3>
           <p className="text-sm text-zinc-400 mt-1 max-w-sm mx-auto">
-            Define a strength goal in Profile Setup to enable AI progress forecasting and timeline projections.
+            Define a strength target to enable AI progress forecasting, regression trajectory models, and estimated date of achievement.
           </p>
+          <div className="mt-4">
+            <Link to="/dashboard">
+              <Button size="sm" className="gap-2 shadow-lg shadow-orange-500/20">
+                <Plus className="h-4 w-4" />
+                Add Strength Target
+              </Button>
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-8">

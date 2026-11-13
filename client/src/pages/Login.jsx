@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Flame, Lock, Mail, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Flame, Lock, Mail, ArrowRight, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await login(email, password);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Invalid credentials.");
     } finally {
@@ -36,29 +36,50 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div
+      className="min-h-screen w-full bg-zinc-950 flex flex-col justify-center items-center md:items-end p-4 sm:p-6 md:pr-16 lg:pr-24 xl:pr-32 relative overflow-hidden bg-cover bg-no-repeat bg-[position:25%_center] md:bg-[position:15%_center]"
+      style={{ backgroundImage: "url('/images/auth-bg.jpg')" }}
+    >
+      {/* Cinematic dark overlay: subtle on left so Baki is sharp & visible, deep on right for form legibility */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-zinc-950/70 to-zinc-950/95 md:bg-gradient-to-r md:from-black/25 md:via-zinc-950/75 md:to-zinc-950/95 pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10">
+      {/* Subtle ambient orange energy glow behind the auth card */}
+      <div className="absolute top-1/3 right-10 md:right-32 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Back to Home Link */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 inline-flex items-center gap-2 text-xs font-medium text-zinc-300 hover:text-orange-400 transition-colors z-20 bg-zinc-950/70 hover:bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-zinc-800/90 shadow-xl"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>Back to Home</span>
+      </Link>
+
+      <div className="w-full max-w-md relative z-10 my-auto">
         {/* Brand header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex h-14 w-14 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 items-center justify-center text-white shadow-xl shadow-orange-500/20 mb-3">
-            <Flame className="h-8 w-8" />
+        <div className="text-center md:text-left mb-6">
+          <div className="inline-flex items-center gap-3 mb-2">
+            <div className="inline-flex h-11 w-11 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 items-center justify-center text-white shadow-lg shadow-orange-500/25">
+              <Flame className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-zinc-100 uppercase">
+                Overload
+              </h1>
+              <span className="text-[10px] uppercase tracking-wider text-orange-400 font-bold">
+                Adaptive Training System
+              </span>
+            </div>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-100">
-            Overload
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            AI-Powered Adaptive Workout & Progress Prediction System
+          <p className="text-xs text-zinc-400 hidden sm:block">
+            Deterministic progressive overload & autoregulatory hypertrophy engine.
           </p>
         </div>
 
-        <Card className="border-zinc-800 bg-zinc-900/90 shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-xl">Sign In</CardTitle>
-            <CardDescription>
+        <Card className="border-zinc-800/80 bg-zinc-950/85 backdrop-blur-xl shadow-2xl shadow-black/90">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold text-zinc-100">Sign In</CardTitle>
+            <CardDescription className="text-zinc-400 text-xs">
               Enter your credentials to access your personalized training loop.
             </CardDescription>
           </CardHeader>
@@ -72,7 +93,7 @@ export default function Login() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-xs text-zinc-300 font-medium">Email Address</Label>
                 <div className="relative">
                   <Input
                     id="email"
@@ -80,7 +101,7 @@ export default function Login() {
                     placeholder="athlete@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 bg-zinc-900/60 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-orange-500"
                     required
                   />
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
@@ -88,7 +109,7 @@ export default function Login() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-xs text-zinc-300 font-medium">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -96,7 +117,7 @@ export default function Login() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 bg-zinc-900/60 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-orange-500"
                     required
                   />
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
@@ -104,10 +125,10 @@ export default function Login() {
               </div>
             </CardContent>
 
-            <CardFooter className="flex flex-col gap-4">
+            <CardFooter className="flex flex-col gap-4 pt-2">
               <Button
                 type="submit"
-                className="w-full gap-2 shadow-lg shadow-orange-500/20"
+                className="w-full gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold shadow-lg shadow-orange-500/25 border-0 transition-all duration-200"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -117,14 +138,14 @@ export default function Login() {
                   </>
                 ) : (
                   <>
-                    Sign In
+                    Sign In to Session
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
               </Button>
 
               <div className="text-center text-xs text-zinc-400">
-                Don't have an account yet?{" "}
+                Don't have an athlete account?{" "}
                 <Link
                   to="/register"
                   className="text-orange-400 hover:text-orange-300 font-medium underline underline-offset-4"
@@ -136,7 +157,7 @@ export default function Login() {
           </form>
         </Card>
 
-        <p className="text-center text-xs text-zinc-600 mt-6">
+        <p className="text-center md:text-left text-[11px] text-zinc-600 mt-4">
           IIIT Vadodara · CS447 Software Project Management
         </p>
       </div>

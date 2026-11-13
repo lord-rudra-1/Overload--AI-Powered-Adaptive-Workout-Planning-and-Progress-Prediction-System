@@ -9,6 +9,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "node prisma/seed.js",
+    "db:verify": "node scripts/verifyDb.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

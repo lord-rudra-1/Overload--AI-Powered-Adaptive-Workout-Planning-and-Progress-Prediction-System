@@ -17,19 +17,25 @@ import {
   Play,
   Activity,
   History,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import GoalModal from "@/components/goals/GoalModal";
+import { useToast } from "@/context/ToastContext";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [goals, setGoals] = useState([]);
   const [nextWorkout, setNextWorkout] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
 
   const isProfileComplete = Boolean(user?.experience && user?.trainingDays && user?.bodyWeight);
 
@@ -65,6 +71,18 @@ export default function Dashboard() {
 
     loadDashboardData();
   }, []);
+
+  const handleDeleteGoal = async (goalId) => {
+    if (!window.confirm("Remove this strength goal?")) return;
+    try {
+      await api.delete(`/profile/goal/${goalId}`);
+      setGoals((prev) => prev.filter((g) => g.id !== goalId));
+      toast.info("Strength goal removed.");
+    } catch (err) {
+      console.error("Failed to delete goal:", err);
+      toast.error("Failed to remove strength goal.");
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -265,40 +283,63 @@ export default function Dashboard() {
                   <Target className="h-4 w-4 text-orange-400" />
                   Strength Targets
                 </CardTitle>
-                <Badge variant="secondary" className="text-[10px]">
-                  {goals.length}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px]">
+                    {goals.length}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsGoalModalOpen(true)}
+                    className="h-7 px-2 text-xs gap-1 border-zinc-800 text-zinc-300 hover:text-orange-400 hover:border-orange-500/50"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add</span>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {goals.length === 0 ? (
-                <div className="text-center py-4 border border-dashed border-zinc-800 rounded-lg">
+                <div className="text-center py-5 border border-dashed border-zinc-800 rounded-lg">
                   <p className="text-xs text-zinc-400">No active goal set.</p>
-                  <Link to="/profile-setup" className="inline-block mt-2">
-                    <Button variant="outline" size="sm" className="text-xs">
-                      Set Goal
-                    </Button>
-                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsGoalModalOpen(true)}
+                    className="mt-2 text-xs gap-1.5"
+                  >
+                    <Plus className="h-3 w-3" /> Set Strength Target
+                  </Button>
                 </div>
               ) : (
                 goals.map((g) => (
                   <div
                     key={g.id}
-                    className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80 flex items-center justify-between"
+                    className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80 flex items-center justify-between group"
                   >
                     <div>
                       <h4 className="text-xs font-semibold text-zinc-200">
                         {g.exercise?.name || "Exercise"}
                       </h4>
                       <p className="text-[10px] text-zinc-500 capitalize">
-                        {g.exercise?.muscleGroup}
+                        {g.exercise?.muscleGroup} {g.targetDate ? `· by ${new Date(g.targetDate).toLocaleDateString()}` : ""}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-base font-bold text-orange-400 font-mono">
-                        {g.targetWeight} kg
-                      </span>
-                      <p className="text-[9px] text-zinc-500 uppercase">Target 1RM</p>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-base font-bold text-orange-400 font-mono">
+                          {g.targetWeight} kg
+                        </span>
+                        <p className="text-[9px] text-zinc-500 uppercase">Target 1RM</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteGoal(g.id)}
+                        className="text-zinc-600 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove goal"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -344,6 +385,19 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Interactive Goal Creator Modal */}
+      <GoalModal
+        isOpen={isGoalModalOpen}
+        onClose={() => setIsGoalModalOpen(false)}
+        onGoalCreated={(newGoal) => {
+          setGoals((prev) => [newGoal, ...prev]);
+          toast.success(
+            `Target 1RM set to ${newGoal.targetWeight} kg`,
+            `${newGoal.exercise?.name || "Strength"} Goal Created`
+          );
+        }}
+      />
     </div>
   );
 }

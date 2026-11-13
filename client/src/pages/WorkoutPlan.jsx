@@ -12,17 +12,24 @@ import {
   Sparkles,
   Loader2,
   SkipForward,
+  ArrowLeftRight,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import ExerciseSwapModal from "@/components/workout/ExerciseSwapModal";
+import { useToast } from "@/context/ToastContext";
 
 export default function WorkoutPlan() {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [selectedItemForSwap, setSelectedItemForSwap] = useState(null);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const fetchWorkouts = async () => {
     try {
@@ -44,17 +51,38 @@ export default function WorkoutPlan() {
   }, []);
 
   const handleGeneratePlan = async () => {
+    if (
+      plannedWorkouts.length > 0 &&
+      !window.confirm("This will clear previous uncompleted workouts and generate a fresh schedule. Continue?")
+    ) {
+      return;
+    }
+
     try {
       setGenerating(true);
       setError("");
       const res = await api.post("/workouts/generate");
       if (res.data?.success) {
         await fetchWorkouts();
+        toast.success("Previous planned workouts cleared & fresh schedule created.", "Plan Reset");
       }
     } catch (err) {
       setError(err.response?.data?.error || "Failed to generate workout plan.");
+      toast.error(err.response?.data?.error || "Failed to generate workout plan.");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDeleteWorkout = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this scheduled workout?")) return;
+    try {
+      await api.delete(`/workouts/${id}`);
+      await fetchWorkouts();
+      toast.info("Scheduled workout deleted.");
+    } catch (err) {
+      console.error("Failed to delete workout:", err);
+      toast.error(err.response?.data?.error || "Failed to delete workout.");
     }
   };
 
@@ -63,8 +91,10 @@ export default function WorkoutPlan() {
     try {
       await api.put(`/workouts/${id}/skip`);
       fetchWorkouts();
+      toast.info("Workout marked as skipped.");
     } catch (err) {
       console.error("Failed to skip workout:", err);
+      toast.error("Failed to skip workout.");
     }
   };
 
@@ -171,13 +201,22 @@ export default function WorkoutPlan() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Delete scheduled workout"
+                        onClick={() => handleDeleteWorkout(workout.id)}
+                        className="text-zinc-500 hover:text-red-400 hover:bg-zinc-800 h-8 w-8"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         title="Skip workout"
                         onClick={() => handleSkipWorkout(workout.id)}
-                        className="text-zinc-500 hover:text-zinc-300 h-8 w-8"
+                        className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 h-8 w-8"
                       >
                         <SkipForward className="h-4 w-4" />
                       </Button>
@@ -211,13 +250,26 @@ export default function WorkoutPlan() {
                             {item.exercise?.muscleGroup} · {item.exercise?.equipment}
                           </span>
                         </div>
-                        <div className="text-right font-mono">
-                          <span className="font-bold text-orange-400 text-sm">
-                            {item.targetWeight} kg
-                          </span>
-                          <p className="text-[11px] text-zinc-400">
-                            {item.targetSets} sets × {item.targetReps} reps @ RPE {item.targetRPE || 8}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right font-mono">
+                            <span className="font-bold text-orange-400 text-sm">
+                              {item.targetWeight} kg
+                            </span>
+                            <p className="text-[11px] text-zinc-400">
+                              {item.targetSets} sets × {item.targetReps} reps @ RPE {item.targetRPE || 8}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedItemForSwap(item);
+                              setSwapModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-orange-400 hover:bg-zinc-800 transition-colors"
+                            title="Swap exercise"
+                          >
+                            <ArrowLeftRight className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -228,6 +280,17 @@ export default function WorkoutPlan() {
           </div>
         </div>
       )}
+
+      {/* Exercise Swap Modal */}
+      <ExerciseSwapModal
+        isOpen={swapModalOpen}
+        onClose={() => setSwapModalOpen(false)}
+        workoutExercise={selectedItemForSwap}
+        onSwapped={() => {
+          fetchWorkouts();
+          toast.success("Scheduled movement replaced with alternative.", "Exercise Swapped");
+        }}
+      />
     </div>
   );
 }

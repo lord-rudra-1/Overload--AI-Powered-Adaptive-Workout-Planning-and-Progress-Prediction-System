@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard,
@@ -12,18 +12,22 @@ import {
   Menu,
   X,
   Flame,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import api from "@/lib/api";
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const navigate = useNavigate();
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Workout Plan", href: "/plan", icon: Dumbbell },
     { name: "History", href: "/history", icon: History },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
@@ -35,14 +39,14 @@ export default function Layout() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row">
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900/90 backdrop-blur sticky top-0 z-40">
-        <div className="flex items-center gap-2">
+        <Link to="/dashboard" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-500">
             <Flame className="h-5 w-5" />
           </div>
           <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
             Overload
           </span>
-        </div>
+        </Link>
         <Button
           variant="ghost"
           size="icon"
@@ -60,7 +64,7 @@ export default function Layout() {
         }`}
       >
         {/* Brand */}
-        <div className="h-16 flex items-center px-6 gap-3 border-b border-zinc-800/60">
+        <Link to="/dashboard" className="h-16 flex items-center px-6 gap-3 border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
             <Flame className="h-5 w-5" />
           </div>
@@ -72,7 +76,7 @@ export default function Layout() {
               Adaptive System
             </p>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation links */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -133,6 +137,36 @@ export default function Layout() {
               <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              try {
+                setIsSeeding(true);
+                await api.post("/seed-history");
+                window.location.reload();
+              } catch (e) {
+                alert("Failed to seed: " + (e.response?.data?.error || e.message));
+              } finally {
+                setIsSeeding(false);
+              }
+            }}
+            disabled={isSeeding}
+            className="w-full justify-start text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 gap-2 mb-1 border border-orange-500/20"
+          >
+            {isSeeding ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Populating 1-Month Data...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Populate 1-Month Activity</span>
+              </>
+            )}
+          </Button>
+
           <Button
             variant="ghost"
             size="sm"

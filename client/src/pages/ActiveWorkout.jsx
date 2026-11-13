@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import {
@@ -14,6 +14,9 @@ import {
   Loader2,
   AlertCircle,
   TrendingUp,
+  History,
+  Calculator,
+  Timer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,10 +24,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import PlateCalculatorModal from "@/components/workout/PlateCalculatorModal";
+import RestTimerBar from "@/components/workout/RestTimerBar";
+import { useToast } from "@/context/ToastContext";
 
 export default function ActiveWorkout() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [workout, setWorkout] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -38,8 +45,21 @@ export default function ActiveWorkout() {
   const [inputRpe, setInputRpe] = useState("8.0");
   const [isLoggingSet, setIsLoggingSet] = useState(false);
 
-  // Timer state
+  // Session elapsed timer state
   const [seconds, setSeconds] = useState(0);
+
+  // Rest Timer state
+  const [restTimeLeft, setRestTimeLeft] = useState(0);
+  const [totalRestTime, setTotalRestTime] = useState(90);
+  const [isRestRunning, setIsRestRunning] = useState(false);
+
+  // Plate Calculator state
+  const [plateModalOpen, setPlateModalOpen] = useState(false);
+  const [plateModalWeight, setPlateModalWeight] = useState(60);
+
+  // Previous performance history (ghosting)
+  const [previousLogs, setPreviousLogs] = useState([]);
+  const [loadingPrevious, setLoadingPrevious] = useState(false);
 
   // Completion / Adaptation state
   const [isCompleting, setIsCompleting] = useState(false);
@@ -80,6 +100,42 @@ export default function ActiveWorkout() {
 
   const currentExercise = workout?.exercises?.[activeExerciseIndex];
 
+  // Fetch previous exercise performance history for ghosting
+  useEffect(() => {
+    async function fetchPreviousPerformance() {
+      if (!currentExercise?.exerciseId) return;
+      try {
+        setLoadingPrevious(true);
+        const res = await api.get(`/performance/exercise/${currentExercise.exerciseId}`);
+        if (res.data?.success && res.data?.data?.logs) {
+          const pastLogs = res.data.data.logs.filter(
+            (l) => l.workoutId !== parseInt(id, 10)
+          );
+          setPreviousLogs(pastLogs);
+        }
+      } catch (err) {
+        console.error("Failed to load previous exercise performance:", err);
+      } finally {
+        setLoadingPrevious(false);
+      }
+    }
+
+    fetchPreviousPerformance();
+  }, [currentExercise?.exerciseId, id]);
+
+  // Extract the most recent previous session's logs for this exercise
+  const lastSessionLogs = useMemo(() => {
+    if (!previousLogs.length) return [];
+    const sorted = [...previousLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const lastWorkoutId = sorted[0]?.workoutId;
+    if (lastWorkoutId) {
+      return sorted
+        .filter((l) => l.workoutId === lastWorkoutId)
+        .sort((a, b) => a.setNumber - b.setNumber);
+    }
+    return [sorted[0]];
+  }, [previousLogs]);
+
   // Set default weight & reps when changing active exercise
   useEffect(() => {
     if (currentExercise) {
@@ -115,9 +171,17 @@ export default function ActiveWorkout() {
 
       if (res.data?.success && res.data?.data?.log) {
         setLogs((prev) => [...prev, res.data.data.log]);
+        toast.success(
+          `Logged ${inputWeight} kg × ${inputReps} reps @ RPE ${inputRpe}`,
+          `Set #${nextSetNumber} Recorded`
+        );
+        // Auto-start rest timer
+        setRestTimeLeft(totalRestTime);
+        setIsRestRunning(true);
       }
     } catch (err) {
       console.error("Failed to log set:", err);
+      toast.error(err.response?.data?.error || "Failed to record set.");
     } finally {
       setIsLoggingSet(false);
     }
@@ -127,8 +191,10 @@ export default function ActiveWorkout() {
     try {
       await api.delete(`/performance/${logId}`);
       setLogs((prev) => prev.filter((l) => l.id !== logId));
+      toast.info("Set removed from workout session.");
     } catch (err) {
       console.error("Failed to delete set:", err);
+      toast.error("Failed to remove set.");
     }
   };
 
@@ -271,7 +337,20 @@ export default function ActiveWorkout() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPlateModalWeight(currentExercise?.targetWeight || 60);
+              setPlateModalOpen(true);
+            }}
+            className="gap-1.5 border-zinc-800 text-zinc-300 hover:text-orange-400 hover:border-orange-500/50 bg-zinc-950"
+          >
+            <Calculator className="h-4 w-4 text-orange-400" />
+            <span className="hidden sm:inline">Plate Calc</span>
+          </Button>
+
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-sm text-zinc-300">
             <Clock className="h-4 w-4 text-orange-400" />
             <span>{formatTimer(seconds)}</span>
@@ -347,18 +426,48 @@ export default function ActiveWorkout() {
                 </div>
               </div>
 
-              {/* Target Prescription Pill */}
-              <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-right">
-                <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
-                  Prescribed Target:
-                </span>
-                <span className="font-mono font-bold text-orange-400 text-base">
-                  {currentExercise.targetWeight} kg
-                </span>
-                <span className="text-xs text-zinc-300 font-mono ml-2">
-                  {currentExercise.targetSets} sets × {currentExercise.targetReps} reps @ RPE{" "}
-                  {currentExercise.targetRPE || 8}
-                </span>
+              {/* Target Prescription Pill & Performance Ghosting */}
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-right w-full sm:w-auto">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                      Prescribed Target
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlateModalWeight(currentExercise.targetWeight);
+                        setPlateModalOpen(true);
+                      }}
+                      className="text-[10px] text-orange-400 hover:text-orange-300 flex items-center gap-1 font-medium hover:underline"
+                    >
+                      <Calculator className="h-3 w-3" />
+                      Calc Plates
+                    </button>
+                  </div>
+                  <div className="flex items-baseline justify-end gap-2 mt-0.5">
+                    <span className="font-mono font-black text-orange-400 text-lg">
+                      {currentExercise.targetWeight} kg
+                    </span>
+                    <span className="text-xs text-zinc-300 font-mono">
+                      {currentExercise.targetSets}s × {currentExercise.targetReps}r @ RPE {currentExercise.targetRPE || 8}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Performance Ghosting: previous session for this exercise */}
+                {lastSessionLogs.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400 bg-zinc-950/80 px-2.5 py-1 rounded-md border border-zinc-800">
+                    <History className="h-3 w-3 text-cyan-400 shrink-0" />
+                    <span className="text-zinc-500 font-sans">Last Session:</span>
+                    <span className="text-cyan-400 font-bold">{lastSessionLogs[0].weight} kg</span>
+                    <span>×</span>
+                    <span className="text-zinc-300">
+                      {lastSessionLogs.map((l) => l.repetitions).join("-")} reps
+                    </span>
+                    <span className="text-zinc-500 text-[10px]">(@ RPE {lastSessionLogs[0].rpe || 8})</span>
+                  </div>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -386,15 +495,24 @@ export default function ActiveWorkout() {
 
                   {currentExerciseLogs.map((log) => {
                     const hitTarget = log.repetitions >= currentExercise.targetReps;
+                    const prevSetForComparison = lastSessionLogs[log.setNumber - 1];
+
                     return (
                       <div
                         key={log.id}
                         className="grid grid-cols-5 items-center p-2 text-xs font-mono text-zinc-300 bg-zinc-900/40"
                       >
                         <span className="font-bold text-zinc-400">#{log.setNumber}</span>
-                        <span className="text-orange-400 font-bold">{log.weight} kg</span>
-                        <span className="flex items-center gap-1.5">
-                          {log.repetitions}
+                        <div>
+                          <span className="text-orange-400 font-bold">{log.weight} kg</span>
+                          {prevSetForComparison && (
+                            <span className="block text-[10px] text-zinc-500">
+                              Prev: {prevSetForComparison.weight}kg
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold">{log.repetitions}</span>
                           {hitTarget ? (
                             <Badge variant="success" className="text-[9px] px-1 py-0">
                               Hit
@@ -404,7 +522,12 @@ export default function ActiveWorkout() {
                               Under
                             </Badge>
                           )}
-                        </span>
+                          {prevSetForComparison && (
+                            <span className="text-[10px] text-zinc-500">
+                              ({prevSetForComparison.repetitions}r)
+                            </span>
+                          )}
+                        </div>
                         <span className="text-zinc-400 text-[11px]">
                           RPE {log.rpe || 8} · RIR {log.rir !== null ? log.rir : 2}
                         </span>
@@ -437,9 +560,21 @@ export default function ActiveWorkout() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="weight" className="text-xs">
-                    Weight (kg)
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="weight" className="text-xs">
+                      Weight (kg)
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlateModalWeight(parseFloat(inputWeight) || currentExercise.targetWeight);
+                        setPlateModalOpen(true);
+                      }}
+                      className="text-[10px] text-orange-400 hover:text-orange-300 flex items-center gap-0.5"
+                    >
+                      <Calculator className="h-2.5 w-2.5" /> Plates
+                    </button>
+                  </div>
                   <Input
                     id="weight"
                     type="number"
@@ -524,6 +659,23 @@ export default function ActiveWorkout() {
           </CardFooter>
         </Card>
       )}
+
+      {/* Floating Rest Interval Timer */}
+      <RestTimerBar
+        timeLeft={restTimeLeft}
+        setTimeLeft={setRestTimeLeft}
+        totalRestTime={totalRestTime}
+        setTotalRestTime={setTotalRestTime}
+        isRunning={isRestRunning}
+        setIsRunning={setIsRestRunning}
+      />
+
+      {/* Barbell Plate Loading Calculator Modal */}
+      <PlateCalculatorModal
+        isOpen={plateModalOpen}
+        onClose={() => setPlateModalOpen(false)}
+        initialWeight={plateModalWeight}
+      />
     </div>
   );
 }
